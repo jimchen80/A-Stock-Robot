@@ -22,29 +22,21 @@ jobs:
       with:
         python-version: '3.9'
 
-    - name: Install Runtime Env
+    - name: Install Runtime
       run: pip install akshare pandas openpyxl requests numpy
 
     - name: Run Analysis
       run: |
-        # 第一步：物理删除旧文件，防止 Git 误判没变化
         rm -f index.xlsx
-        # 第二步：生成新文件
         python stock_robot.py
 
-    - name: Force Push to Main
+    - name: Commit and Push
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
         git config --global user.name "github-actions[bot]"
         git config --global user.email "github-actions[bot]@users.noreply.github.com"
-        
-        # 强制将新生成的 index.xlsx 加入暂存区
-        git add index.xlsx || true
-        
-        # 即使 Excel 内容一模一样，通过 Commit 备注里的动态秒数强制产生提交
+        git add index.xlsx last_run.txt || true
         TS=$(date -d "+8 hours" +'%H:%M:%S')
-        git commit -m "📊 潜伏者报告更新 | $TS" 
-        
-        # 强制推送到主分支
+        git commit -m "📊 更新报告 | $TS" || echo "No changes"
         git push origin main
