@@ -1,19 +1,18 @@
 name: A-Stock-Auto-Robot
 
 on:
+  workflow_dispatch: 
   schedule:
-    # 自动执行时间 (北京时间 9:40, 11:30, 14:00, 15:00)
     - cron: '40 1 * * 1-5'
     - cron: '30 3 * * 1-5'
     - cron: '0 6 * * 1-5'
     - cron: '0 7 * * 1-5'
-  workflow_dispatch: 
 
 jobs:
   build:
     runs-on: ubuntu-latest
     permissions:
-      contents: write  # 显式声明具备写入权限
+      contents: write
     steps:
     - name: Checkout Code
       uses: actions/checkout@v3
@@ -23,28 +22,17 @@ jobs:
       with:
         python-version: '3.9'
 
-    - name: Install Critical Dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install akshare pandas openpyxl requests numpy
+    - name: Install Dependencies
+      run: pip install akshare pandas openpyxl requests numpy
 
     - name: Run Robot
       run: python stock_robot.py
 
-    - name: Commit and Push Report
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    - name: Commit and Push
       run: |
         git config --global user.name "github-actions[bot]"
         git config --global user.email "github-actions[bot]@users.noreply.github.com"
-        
-        # 强制添加生成的报告文件
-        git add index.xlsx Report_*.xlsx index.html || true
-        
-        # 只有在有文件变动时才提交，防止报错
-        if git diff --staged --quiet; then
-          echo "No changes to commit"
-        else
-          git commit -m "🚀 自动更新量化分析报告 [skip ci]"
-          git push origin main
-        fi
+        # 强制删除旧索引并添加新文件
+        git add index.xlsx || true
+        git commit -m "Update Report" || echo "No changes"
+        git push origin main
