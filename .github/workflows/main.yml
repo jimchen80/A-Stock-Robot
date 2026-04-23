@@ -2,7 +2,6 @@ name: A-Stock-Auto-Robot
 
 on:
   schedule:
-    # 自动执行时间 (北京时间 9:40, 11:30, 14:00, 15:00)
     - cron: '40 1 * * 1-5'
     - cron: '30 3 * * 1-5'
     - cron: '0 6 * * 1-5'
@@ -21,9 +20,10 @@ jobs:
       with:
         python-version: '3.9'
 
-    - name: Install Dependencies
+    - name: Install Critical Dependencies
       run: |
-        pip install -r requirements.txt
+        python -m pip install --upgrade pip
+        pip install akshare pandas openpyxl requests
 
     - name: Run Robot
       run: python stock_robot.py
@@ -33,5 +33,5 @@ jobs:
         git config --global user.name "Robot"
         git config --global user.email "robot@github.com"
         git add .
-        git commit -m "Auto Update Report"
+        git commit -m "Auto Update Report" || exit 0
         git push
