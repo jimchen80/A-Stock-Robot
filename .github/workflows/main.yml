@@ -23,7 +23,7 @@ jobs:
     - name: Install Critical Dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install akshare pandas openpyxl requests
+        pip install akshare pandas openpyxl requests numpy
 
     - name: Run Robot
       run: python stock_robot.py
