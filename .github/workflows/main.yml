@@ -26,26 +26,25 @@ jobs:
       run: pip install akshare pandas openpyxl requests numpy
 
     - name: Run Analysis
-      run: python stock_robot.py
+      run: |
+        # 第一步：物理删除旧文件，防止 Git 误判没变化
+        rm -f index.xlsx
+        # 第二步：生成新文件
+        python stock_robot.py
 
-    - name: Force Push Report
+    - name: Force Push to Main
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
         git config --global user.name "github-actions[bot]"
         git config --global user.email "github-actions[bot]@users.noreply.github.com"
         
-        # --- 核心改动：创建一个永远在变的小文件，强迫 Git 必须识别到差异 ---
-        echo "Last Run: $(date -d "+8 hours" +'%Y-%m-%d %H:%M:%S')" > last_run.txt
+        # 强制将新生成的 index.xlsx 加入暂存区
+        git add index.xlsx || true
         
-        # 显式添加所有相关文件
-        git add index.xlsx last_run.txt || true
+        # 即使 Excel 内容一模一样，通过 Commit 备注里的动态秒数强制产生提交
+        TS=$(date -d "+8 hours" +'%H:%M:%S')
+        git commit -m "📊 潜伏者报告更新 | $TS" 
         
-        # 获取北京时间用于提交备注
-        TIME_STAMP=$(date -d "+8 hours" +'%Y-%m-%d %H:%M:%S')
-        
-        # 强制提交，因为 last_run.txt 必变，所以此步骤绝不会被跳过
-        git commit -m "📈 潜伏者报告更新 | $TIME_STAMP" 
-        
-        # 推送到主分支
+        # 强制推送到主分支
         git push origin main
