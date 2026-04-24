@@ -2,21 +2,32 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>首席策略 10.2 拦截终端</title>
+    <title>首席策略 10.5 拦截终端</title>
     <style>
-        body { font-family: 'PingFang SC','Microsoft YaHei',sans-serif; text-align: center; background: #1a1a1a; color: #fff; padding-top: 10vh; }
-        .card { background: #2d2d2d; display: inline-block; padding: 40px; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
-        .btn { display: inline-block; margin-top: 25px; padding: 15px 35px; background: #e74c3c; color: white; text-decoration: none; border-radius: 30px; font-weight: bold; transition: 0.3s; }
-        .btn:hover { background: #c0392b; transform: scale(1.05); }
+        body { font-family: 'PingFang SC',sans-serif; text-align: center; background: #1a1a1a; color: #fff; padding-top: 10vh; }
+        .card { background: #2d2d2d; display: inline-block; padding: 40px; border-radius: 15px; }
+        .btn { display: inline-block; margin-top: 25px; padding: 15px 35px; background: #e74c3c; color: white; text-decoration: none; border-radius: 30px; font-weight: bold; cursor: pointer; }
     </style>
 </head>
 <body>
     <div class="card">
-        <h1>🏹 首席策略 10.2</h1>
+        <h1>🏹 首席策略 10.5</h1>
         <p>全 A 股“地毯式”启动拦截器</p>
-        <hr style="border:0; border-top:1px solid #444;">
-        <p style="color: #bbb;">实时扫描：1.5% - 4.85% 潜伏区个股</p>
-        <a href="index.xlsx" class="btn">📥 下载最新拦截报告 (.xlsx)</a>
+        <a id="downloadBtn" href="index.xlsx" class="btn" onclick="updateLink()">📥 下载最新拦截报告</a>
+        <p id="timer" style="color:#666; font-size:12px; margin-top:10px;"></p>
     </div>
+
+    <script>
+        function updateLink() {
+            const btn = document.getElementById('downloadBtn');
+            const timestamp = new Date().getTime();
+            // 改变链接为 index.xlsx?t=123456789，浏览器会认为是新文件
+            btn.href = 'index.xlsx?t=' + timestamp;
+        }
+        // 每秒刷新一下提示，让你知道现在的时间
+        setInterval(() => {
+            document.getElementById('timer').innerText = "当前系统时间：" + new Date().toLocaleString();
+        }, 1000);
+    </script>
 </body>
 </html>
