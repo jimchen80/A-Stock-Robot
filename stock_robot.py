@@ -5,14 +5,13 @@ import random
 import time
 
 def analyze_logic(row):
-    """首席策略 10.5：适度放宽后的严谨拦截逻辑"""
+    """首席策略 10.5 宽放版逻辑"""
     try:
-        # 1. 物理层过滤
+        # 1. 过滤非A股和ST
         name = str(row.get('名称', ''))
         code = str(row.get('代码', ''))
         if any(x in name for x in ['ST', '退']) or code.startswith(('8', '4')): return None
 
-        # 2. 数值强转
         price = pd.to_numeric(row.get('最新价'), errors='coerce')
         zf = pd.to_numeric(row.get('涨跌幅'), errors='coerce')
         hs = pd.to_numeric(row.get('换手率'), errors='coerce')
@@ -22,32 +21,18 @@ def analyze_logic(row):
         high = pd.to_numeric(row.get('最高'), errors='coerce')
         low = pd.to_numeric(row.get('最低'), errors='coerce')
 
+        # 2. 核心拦截条件（采用宽放版 10.5）
         if pd.isna(price) or price <= 0: return None
+        if not (0.5 <= zf <= 5.2) or not (80000000 <= amount <= 1200000000): return None
 
-        # --- 3. 核心放宽调整区 ---
-        # 涨幅放宽：0.5% 到 5.2% (捕捉更早，容忍更强)
-        if not (0.5 <= zf <= 5.2): return None
-        # 成交额放宽：0.8亿 到 12.0亿 (覆盖更多市值规模)
-        if not (80000000 <= amount <= 1200000000): return None
-        # --- ----------------- ---
-
-        # 4. 买入博弈位算法
+        # 3. 黄金分割博弈位
         ref_buy = round(prev_close + (high - prev_close) * 0.382, 2)
         stop_loss = round(low * 0.98, 2)
 
-        # 5. 评分权重 (保持严谨)
-        score = 40.0 
-        score += (lb * 12)  # 量比权重
-        score += (hs * 4)   # 换手权重
-        
-        energy = "潜伏蓄势"
-        if lb > 1.5 and hs > 3.0:
-            energy = "🔥 黄金堆积"
-            score += 20
-        
-        if amount > 500000000: # 大单介入加分
-            score += 15
-
+        # 4. 评分体系
+        score = 40.0 + (lb * 12) + (hs * 4)
+        energy = "🔥 黄金堆积" if (lb > 1.5 and hs > 3.0) else "潜伏蓄势"
+        if energy == "🔥 黄金堆积": score += 20
         signal = "💎 潜伏种子" if score >= 85 else "🚩 异动拦截"
 
         return [signal, price, ref_buy, stop_loss, energy, round(score, 1), zf, hs, lb, round(amount/1e8, 2)]
@@ -60,40 +45,42 @@ def run_task():
     full_cols = ['代码', '名称'] + cols
     
     try:
-        # 抗干扰多级抓取
+        # A. 强化抓取（带 5 次重试）
         df = None
         for i in range(5):
             try:
-                time.sleep(random.uniform(2, 5))
+                time.sleep(random.uniform(3, 6))
                 df = ak.stock_zh_a_spot_em()
                 if df is not None and not df.empty: break
             except: continue
         
-        if df is None: raise Exception("数据源超时，请尝试重新运行 Actions")
+        if df is None: raise Exception("接口连接失败")
 
-        # 执行拦截
-        matches = []
+        # B. 严谨遍历（弃用 apply，改用显式列表收集，彻底避开维度错误）
+        final_list = []
         for _, row in df.iterrows():
-            logic_res = analyze_logic(row)
-            if logic_res:
-                matches.append([row['代码'], row['名称']] + logic_res)
+            res = analyze_logic(row)
+            if res:
+                final_list.append([row['代码'], row['名称']] + res)
         
-        # 结果组装
-        if not matches:
+        # C. 稳健构建 DataFrame
+        if not final_list:
             report = pd.DataFrame(columns=full_cols)
+            print("⚠️ 扫描完成，今日暂无符合条件的种子")
         else:
-            # 排序逻辑：评分高且涨幅适中的优先
-            report = pd.DataFrame(matches, columns=full_cols).sort_values(by=["综合评分", "涨幅%"], ascending=[False, True]).head(80)
+            report = pd.DataFrame(final_list, columns=full_cols)
+            report = report.sort_values(by=["综合评分", "涨幅%"], ascending=[False, True]).head(80)
         
-        # 物理指纹与时间戳
+        # D. 指纹与输出
         bj_time = (datetime.datetime.utcnow() + datetime.timedelta(hours=8)).strftime('%Y-%m-%d %H:%M:%S')
-        finger = pd.DataFrame([[f"V10.5-Broad", f"T:{bj_time}", "", "", "", "", "", random.random(), "", "", "", ""]], columns=full_cols)
+        finger = pd.DataFrame([[f"V10.6-Final", f"T:{bj_time}", "", "", "", "", "", random.random(), "", "", "", ""]], columns=full_cols)
         
         pd.concat([finger, report], ignore_index=True).to_excel(file_name, index=False, engine='openpyxl')
-        print(f"✅ 宽放版扫描完成。捕获数量: {len(report)}")
+        print(f"✅ 运行成功！捕获标的：{len(report)} 只")
 
     except Exception as e:
-        pd.DataFrame({"状态": ["系统波动"], "原因": [str(e)]}).to_excel(file_name, index=False)
+        # 最后的保底：如果真的崩了，输出带报错信息的表格，方便排查
+        pd.DataFrame({"状态": ["逻辑崩溃"], "诊断信息": [str(e)]}).to_excel(file_name, index=False)
 
 if __name__ == "__main__":
     run_task()
