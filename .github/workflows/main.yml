@@ -1,28 +1,45 @@
-name: A-Stock-Auto-Robot
+name: A-Share Anti-Blocking Robot 10.0
+
 on:
-  workflow_dispatch:
   schedule:
+    # 模拟 A 股盘中时间（UTC 1:30-3:00, 5:00-7:00 对应北京时间 9:30-11:00, 13:00-15:00）
     - cron: '30 1 * * 1-5'
+    - cron: '0 2 * * 1-5'
+    - cron: '0 5 * * 1-5'
+    - cron: '0 6 * * 1-5'
+  workflow_dispatch: # 支持手动触发调试
+
 jobs:
   build:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
         with:
-          fetch-depth: 0
-      - uses: actions/setup-python@v4
-        with:
-          python-version: '3.9'
-      - name: Install
-        run: pip install -r requirements.txt
-      - name: Run
-        run: python stock_robot.py
-      - name: Push
+          python-version: '3.10'
+
+      - name: Install Dependencies
         run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git add index.xlsx
-          git commit -m "📊 实时报告更新 $(date)" || exit 0
-          git push origin main
+          pip install pandas openpyxl requests
+
+      - name: Run Anti-Blocking Scraping Engine
+        env:
+          # 随机指纹因子：在运行时生成
+          RANDOM_HASH: ${{ github.run_id }} 
+        run: |
+          # 执行文件自毁机制
+          rm -f report/A_Share_Report.xlsx
+          mkdir -p report
+          python stock_engine.py
+
+      - name: Commit and Push Report
+        run: |
+          git config --local user.email "bot@github.com"
+          git config --local user.name "AlphaBot-10.0"
+          git add report/A_Share_Report.xlsx
+          # 即使数据由于停盘没变，因为 Random_Hash 存在，Git 也会识别到二进制变化
+          git commit -m "Auto-Update: A-Share Strategy Report $(date +'%Y-%m-%d %H:%M:%S')"
+          git push
