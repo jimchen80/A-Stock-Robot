@@ -2,12 +2,12 @@ name: A-Share Anti-Blocking Robot 10.0
 
 on:
   schedule:
-    # 模拟 A 股盘中时间（UTC 1:30-3:00, 5:00-7:00 对应北京时间 9:30-11:00, 13:00-15:00）
+    # 模拟 A 股盘中时间（北京时间 9:30, 10:00, 13:00, 14:00）
     - cron: '30 1 * * 1-5'
     - cron: '0 2 * * 1-5'
     - cron: '0 5 * * 1-5'
     - cron: '0 6 * * 1-5'
-  workflow_dispatch: # 支持手动触发调试
+  workflow_dispatch: # 支持手动点击运行
 
 jobs:
   build:
@@ -23,23 +23,32 @@ jobs:
 
       - name: Install Dependencies
         run: |
+          # 自动根据你仓库里的 requirements.txt 安装环境
+          pip install -r requirements.txt
+          # 确保有处理 excel 的库
           pip install pandas openpyxl requests
 
       - name: Run Anti-Blocking Scraping Engine
         env:
-          # 随机指纹因子：在运行时生成
           RANDOM_HASH: ${{ github.run_id }} 
         run: |
-          # 执行文件自毁机制
-          rm -f report/A_Share_Report.xlsx
-          mkdir -p report
-          python stock_engine.py
+          # 1. 物理自毁机制：删除旧报表防止冲突
+          rm -f index.xlsx
+          
+          # 2. 运行选股引擎 (核心：已更正为你的文件名 stock_robot.py)
+          python stock_robot.py
 
       - name: Commit and Push Report
         run: |
           git config --local user.email "bot@github.com"
           git config --local user.name "AlphaBot-10.0"
-          git add report/A_Share_Report.xlsx
-          # 即使数据由于停盘没变，因为 Random_Hash 存在，Git 也会识别到二进制变化
-          git commit -m "Auto-Update: A-Share Strategy Report $(date +'%Y-%m-%d %H:%M:%S')"
-          git push
+          
+          # 检查文件是否存在，防止脚本运行失败导致推送空文件
+          if [ -f "index.xlsx" ]; then
+            git add index.xlsx
+            git commit -m "Auto-Update: A-Share Strategy Report $(date +'%Y-%m-%d %H:%M:%S')"
+            git push
+          else
+            echo "Error: index.xlsx not found, skipping push."
+            exit 1
+          fi
