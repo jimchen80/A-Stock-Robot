@@ -4,116 +4,121 @@ import random
 import time
 from datetime import datetime, timedelta
 
-class AlphaRobot13:
+class QuantumEngine:
+    """深度仿真抓取引擎：模拟真实浏览器协议栈"""
     def __init__(self):
-        self.target_url = "http://push2.eastmoney.com/api/qt/clist/get"
-        self.now_bj = datetime.utcnow() + timedelta(hours=8)
-        self.raw_data = []
-        self.selected_pool = []
+        self.session = requests.Session()
+        self.bj_time = datetime.utcnow() + timedelta(hours=8)
         
-        # 策略核心参数：三维立体拦截
-        self.STRATEGY = {
-            "BASE_FILTER": {"PRICE": (10, 30), "ZF": (1.0, 7.0), "AMOUNT_MIN": 70000000},
-            "WEIGHTS": {"LB": 0.4, "HS": 0.3, "INDUSTRY": 0.3} # 因子权重
-        }
-
-    def _get_headers(self):
-        """反爬防火墙：动态指纹仿真"""
-        return {
-            "User-Agent": f"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/{random.randint(110, 124)}.0.0.0 Safari/537.36",
-            "Referer": "https://quote.eastmoney.com/center/gridlist.html",
-            "Cookie": f"qgqt=1; st_pvi={random.randint(10000, 99999)}; st_si={random.randint(10000, 99999)}"
-        }
-
-    def fetch_market_snapshot(self):
-        """全量抓取：规避 WAF 陷阱"""
-        params = {
-            "pn": "1", "pz": "3000", "po": "1", "np": "1", "fltt": "2", "invt": "2",
-            "fid": "f3", "fs": "m:0+t:6,m:0+t:80,m:1+t:2,m:1+t:23",
-            "fields": "f2,f3,f6,f8,f10,f12,f14,f100", # 核心字段
-            "_": int(time.time() * 1000)
+    def _init_session(self):
+        """模拟首屏访问，获取服务器分配的初始 Cookie"""
+        base_url = "https://quote.eastmoney.com/center/gridlist.html"
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+            "Referer": "https://www.eastmoney.com/"
         }
         try:
-            time.sleep(random.uniform(2, 4)) # 模拟人类阅读延迟
-            res = requests.get(self.target_url, params=params, headers=self._get_headers(), timeout=20)
-            if res.status_code == 200:
-                self.raw_data = res.json().get('data', {}).get('diff', [])
-                print(f"✅ 成功穿透防火墙，捕获全市场数据：{len(self.raw_data)} 条")
-        except Exception as e:
-            print(f"❌ 抓取失败: {e}")
+            self.session.get(base_url, headers=headers, timeout=10)
+        except:
+            pass
 
-    def _calculate_score(self, item):
-        """策略内核：多因子共振评分逻辑"""
-        score = 0
-        lb = self._safe_float(item.get('f10')) # 量比
-        hs = self._safe_float(item.get('f8'))  # 换手
+    def get_market_data(self):
+        """多重逻辑自愈的抓取函数"""
+        self._init_session()
         
-        # 1. 量比评分 (偏好 1.5-3.0 之间的温和放量)
-        if 1.5 <= lb <= 3.0: score += 40
-        elif lb > 3.0: score += 20
+        # 动态字段定义：f2-价格, f3-涨幅, f6-额, f8-换手, f10-量比, f12-代码, f14-名称, f100-行业
+        fields = "f2,f3,f6,f8,f10,f12,f14,f100"
+        url = f"http://push2.eastmoney.com/api/qt/clist/get"
+        params = {
+            "pn": "1", "pz": "4000", "po": "1", "np": "1", 
+            "fltt": "2", "invt": "2", "fid": "f3",
+            "fs": "m:0+t:6,m:0+t:80,m:1+t:2,m:1+t:23",
+            "fields": fields,
+            "_": int(time.time() * 1000)
+        }
         
-        # 2. 换手率评分 (偏好 3%-10% 的活跃状态)
-        if 3.0 <= hs <= 10.0: score += 40
-        elif hs > 10.0: score += 15
-        
-        return score
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+            "Referer": "https://quote.eastmoney.com/center/gridlist.html",
+            "Accept": "application/json, text/javascript, */*; q=0.01",
+            "Accept-Language": "zh-CN,zh;q=0.9"
+        }
 
-    def _safe_float(self, val):
+        for retry in range(3):
+            try:
+                time.sleep(random.uniform(1.5, 3.5))
+                resp = self.session.get(url, params=params, headers=headers, timeout=15)
+                json_data = resp.json()
+                diff = json_data.get('data', {}).get('diff', [])
+                
+                if isinstance(diff, list) and len(diff) > 0:
+                    return diff
+                print(f"第 {retry+1} 次尝试：数据为空，WAF 可能正在反击...")
+            except Exception as e:
+                print(f"链路异常: {e}")
+        return []
+
+class AlphaStrategy:
+    """策略决策中心：多维度因子筛选与评分"""
+    def __init__(self, raw_data):
+        self.data = raw_data
+        self.results = []
+        
+    def _safe(self, val):
         try: return float(val) if val not in ["-", None, ""] else 0.0
         except: return 0.0
 
-    def apply_strategy(self):
-        """深度筛选：不仅仅是拦截，更是优选"""
-        for item in self.raw_data:
-            price = self._safe_float(item.get('f2'))
-            zf = self._safe_float(item.get('f3'))
-            amount = self._safe_float(item.get('f6'))
+    def process(self):
+        for item in self.data:
+            # 1. 基础数据清洗
+            p = self._safe(item.get('f2'))   # 价格
+            zf = self._safe(item.get('f3'))  # 涨幅
+            amt = self._safe(item.get('f6')) # 成交额
+            lb = self._safe(item.get('f10')) # 量比
+            hs = self._safe(item.get('f8'))  # 换手
             
-            # 基础门槛拦截
-            if not (self.STRATEGY["BASE_FILTER"]["PRICE"][0] <= price <= self.STRATEGY["BASE_FILTER"]["PRICE"][1]): continue
-            if not (self.STRATEGY["BASE_FILTER"]["ZF"][0] <= zf <= self.STRATEGY["BASE_FILTER"]["ZF"][1]): continue
-            if amount < self.STRATEGY["BASE_FILTER"]["AMOUNT_MIN"]: continue
+            # 2. 策略硬性门槛（首席策略14.0基准）
+            if not (10 <= p <= 35): continue
+            if not (1.5 <= zf <= 7.5): continue
+            if amt < 80000000: continue # 0.8亿门槛
             
-            # 因子加权计算
-            score = self._calculate_score(item)
-            if score >= 50: # 仅保留及格以上的标的
-                self.selected_pool.append({
-                    "代码": item.get('f12'),
-                    "名称": item.get('f14'),
-                    "行业": item.get('f100'),
-                    "现价": price,
-                    "涨幅%": zf,
-                    "量比": self._safe_float(item.get('f10')),
-                    "换手%": self._safe_float(item.get('f8')),
-                    "成交额(亿)": round(amount/100000000, 2),
-                    "策略评分": score
-                })
-        self.selected_pool = sorted(self.selected_pool, key=lambda x: x['策略评分'], reverse=True)
-
-    def generate_professional_report(self):
-        """报告生成逻辑：深度分析体现"""
-        if not self.selected_pool:
-            # 哪怕没选出来，也要生成“市场情绪诊断报告”
-            diag_df = pd.DataFrame([{
-                "诊断时间": self.now_bj.strftime('%Y-%m-%d %H:%M'),
-                "市场状态": "因子共振缺失",
-                "建议": "继续空仓观望，策略门槛未被触发"
-            }])
-            diag_df.to_excel("index.xlsx", index=False)
-            return
-
-        df = pd.DataFrame(self.selected_pool)
+            # 3. 评分矩阵
+            score = 50 
+            if 1.5 < lb < 3.5: score += 20 # 攻击性量比
+            if 4.0 < hs < 12.0: score += 20 # 活跃筹码
+            if zf > 5.0: score += 10 # 强势基因
+            
+            self.results.append({
+                "代码": item.get('f12'),
+                "名称": item.get('f14'),
+                "现价": p,
+                "涨幅%": zf,
+                "成交额(亿)": round(amt/1e8, 2),
+                "量比": lb,
+                "换手%": hs,
+                "行业": item.get('f100'),
+                "综合评分": score
+            })
         
-        # 深度修饰：增加行业分布统计
-        industry_analysis = df['行业'].value_counts().to_dict()
-        df['行业热度'] = df['行业'].map(industry_analysis)
-        
-        # 最终保存
-        df.to_excel("index.xlsx", index=False)
-        print(f"📊 报告生成完毕，入选标的：{len(df)} 只")
+        # 按评分降序，取前 50 名
+        return sorted(self.results, key=lambda x: x['综合评分'], reverse=True)[:50]
 
+# --- 主执行链路 ---
 if __name__ == "__main__":
-    robot = AlphaRobot13()
-    robot.fetch_market_snapshot()
-    robot.apply_strategy()
-    robot.generate_professional_report()
+    engine = QuantumEngine()
+    raw_list = engine.get_market_data()
+    
+    update_str = engine.bj_time.strftime('%Y-%m-%d %H:%M:%S')
+    
+    if raw_list:
+        strategy = AlphaStrategy(raw_list)
+        final_list = strategy.process()
+        
+        if final_list:
+            df = pd.DataFrame(final_list)
+            df.to_excel("index.xlsx", index=False)
+            print(f"SUCCESS: 捕获并分析了 {len(raw_list)} 只个股，筛选出 {len(final_list)} 只精选标的")
+        else:
+            pd.DataFrame([{"提醒": "数据抓取成功但无共振标的", "样本量": len(raw_list), "更新时间": update_str}]).to_excel("index.xlsx", index=False)
+    else:
+        pd.DataFrame([{"错误": "抓取失败：防火墙拦截或接口变更", "更新时间": update_str}]).to_excel("index.xlsx", index=False)
