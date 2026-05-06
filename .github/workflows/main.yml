@@ -1,13 +1,10 @@
-name: A-Share Anti-Blocking Robot 10.0
+name: A-Share Anti-Blocking Robot 11.0
 
 on:
   schedule:
-    # 模拟 A 股盘中时间（北京时间 9:30, 10:00, 13:00, 14:00）
     - cron: '30 1 * * 1-5'
-    - cron: '0 2 * * 1-5'
-    - cron: '0 5 * * 1-5'
-    - cron: '0 6 * * 1-5'
-  workflow_dispatch: # 支持手动点击运行
+    - cron: '30 6 * * 1-5'
+  workflow_dispatch:
 
 jobs:
   build:
@@ -23,32 +20,22 @@ jobs:
 
       - name: Install Dependencies
         run: |
-          # 自动根据你仓库里的 requirements.txt 安装环境
-          pip install -r requirements.txt
-          # 确保有处理 excel 的库
-          pip install pandas openpyxl requests
+          pip install pandas openpyxl requests  # 必须包含 openpyxl
 
       - name: Run Anti-Blocking Scraping Engine
-        env:
-          RANDOM_HASH: ${{ github.run_id }} 
         run: |
-          # 1. 物理自毁机制：删除旧报表防止冲突
           rm -f index.xlsx
-          
-          # 2. 运行选股引擎 (核心：已更正为你的文件名 stock_robot.py)
-          python stock_robot.py
+          python stock_robot.py  # 文件名必须完全匹配
 
       - name: Commit and Push Report
         run: |
           git config --local user.email "bot@github.com"
-          git config --local user.name "AlphaBot-10.0"
-          
-          # 检查文件是否存在，防止脚本运行失败导致推送空文件
+          git config --local user.name "AlphaBot-11.0"
           if [ -f "index.xlsx" ]; then
             git add index.xlsx
-            git commit -m "Auto-Update: A-Share Strategy Report $(date +'%Y-%m-%d %H:%M:%S')"
+            git commit -m "Auto-Update: Strategy 11.0 Report"
             git push
           else
-            echo "Error: index.xlsx not found, skipping push."
+            echo "Error: index.xlsx not found"
             exit 1
           fi
